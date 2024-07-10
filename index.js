@@ -12,11 +12,19 @@ const port = 3000;
 app.use(bodyParser.json());
 app.use(cors());
 
+// const db = mysql.createConnection({
+//   host: "localhost",
+//   user: "root",
+//   password: "Nandhakumar@123",
+//   database: "biits_expense_tracker",
+// });
+
+
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "Nandhakumar@123",
-  database: "biits_expense_tracker",
+  host: "sql12.freesqldatabase.com",
+  user: "sql12719132",
+  password: "1e6Gb2bkzg",
+  database: "sql12719132",
 });
 
 db.connect((err) => {
