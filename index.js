@@ -5,18 +5,13 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const multer = require("multer");
 const fs = require("fs");
+const path = require("path");
 
 const app = express();
 const port = 3000;
 
 app.use(bodyParser.json());
 app.use(cors());
-
-const path = "./uploads";
-
-if (!fs.existsSync(path)) {
-  fs.mkdirSync(path, { recursive: true });
-}
 
 const db = mysql.createConnection({
   host: "localhost",
@@ -31,7 +26,6 @@ const db = mysql.createConnection({
 //   password: "1e6Gb2bkzg",
 //   database: "sql12719132",
 // });
-
 db.connect((err) => {
   if (err) {
     throw err;
@@ -122,11 +116,13 @@ app.post("/emp_login", (req, res) => {
 // Multer storage configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    let uploadPath = "./uploads"; // Default upload path
+    // let uploadPath = `${process.cwd()}/uploads`;
+    let uploadPath = path.join("uploads");
 
     // Example: Store files in a directory based on user ID
-    if (req.body.user_id) {
-      uploadPath = `./uploads/${req.body.user_id}`;
+    if (req.body.emp_id) {
+      // uploadPath = `${process.cwd()}/uploads/${req.body.user_id}`;
+      uploadPath = path.join("uploads", req.body.emp_id);
     }
 
     // Ensure the directory exists, create it if it doesn't
@@ -140,32 +136,38 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-// API to store expense details
-app.post("/store_expense", upload.single("receipt"), async (req, res) => {
-  const { emp_id, date, items, amount } = req.body;
-  //   const receipt = req.file.path; // Uploaded file path
-  let receipt = "";
 
-  // Check if file was uploaded
-  if (req.file) {
-    receipt = req.file.path; // Uploaded file path
+// API to store expense details
+app.post("/store_expense", upload.array("receipt", 10), async (req, res) => {
+  const { emp_id, date, items, amount } = req.body;
+  let receipt = [];
+
+  if (req.files) {
+    // receipt = req.files.map((file) => file.path); // Get all uploaded file paths
+    receipt = req.files.map((file) => path.join("uploads", file.filename));
   }
 
-  if (!emp_id || !date || !items || !amount || !receipt) {
+  if (!emp_id || !date || !items || !amount || receipt.length === 0) {
     return res
       .status(400)
       .json({ error: "Please provide all required fields" });
   }
 
   try {
-    const sql = `INSERT INTO expense_details (emp_id,date, items, receipt, amount) VALUES (?, ?, ?, ?, ?)`;
-    db.query(sql, [emp_id, date, items, receipt, amount], (err, result) => {
-      if (err) {
-        console.error("Database error:", err);
-        return res.status(500).json({ error: "Database error" });
+    const sql = `INSERT INTO expense_details (emp_id, date, items, receipt, amount) VALUES (?, ?, ?, ?, ?)`;
+    db.query(
+      sql,
+      [emp_id, date, items, JSON.stringify(receipt), amount],
+      (err, result) => {
+        if (err) {
+          console.error("Database error:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+        res
+          .status(201)
+          .json({ message: "Expense details stored successfully" });
       }
-      res.status(201).json({ message: "Expense details stored successfully" });
-    });
+    );
   } catch (error) {
     console.error("Internal server error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -193,9 +195,10 @@ app.get("/fetch_expenses/:emp_id", (req, res) => {
 // Multer storage configuration
 const refundStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    let uploadPath = "./uploads/refunds";
+    // let uploadPath = "./uploads/refunds";
+    let uploadPath = `${process.cwd()}/uploads/refunds`;
     if (req.body.id) {
-      uploadPath = `./uploads/refunds/${req.body.id}`;
+      uploadPath = `${process.cwd()}/uploads/refunds/${req.body.id}`;
     }
     fs.mkdirSync(uploadPath, { recursive: true });
     cb(null, uploadPath);
